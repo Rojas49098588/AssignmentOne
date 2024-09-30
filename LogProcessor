@@ -1,0 +1,111 @@
+import java.io.*;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Stack;
+
+public class LogProcessor {
+    private static final String INFO = "INFO";
+    private static final String WARN = "WARN";
+    private static final String ERROR = "ERROR";
+    
+    private Queue<String> logQueue;
+    private Stack<String> errorStack;
+    
+    private int infoCount = 0;
+    private int warnCount = 0;
+    private int errorCount = 0;
+    private int memoryWarningCount = 0;
+    
+    private LinkedList<String> last100Errors;
+
+    public LogProcessor() {
+        logQueue = new LinkedList<>();
+        errorStack = new Stack<>();
+        last100Errors = new LinkedList<>();
+    }
+
+    public void readLogFile(String filePath) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(filePath));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            logQueue.add(line);  
+        }
+        reader.close();
+    }
+
+    public void processLogs() {
+        while (!logQueue.isEmpty()) {
+            String logEntry = logQueue.poll(); 
+            processLogEntry(logEntry);
+        }
+    }
+
+    private void processLogEntry(String logEntry) {
+        String logLevel = extractLogLevel(logEntry);
+        String message = extractLogMessage(logEntry);
+        
+        switch (logLevel) {
+            case INFO:
+                infoCount++;
+                break;
+            case WARN:
+                warnCount++;
+                if (message.contains("Memory")) {
+                    memoryWarningCount++; 
+                }
+                break;
+            case ERROR:
+                errorCount++;
+                errorStack.push(logEntry);  
+                trackLast100Errors(logEntry);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private String extractLogLevel(String logEntry) {
+        if (logEntry.contains(INFO)) return INFO;
+        if (logEntry.contains(WARN)) return WARN;
+        if (logEntry.contains(ERROR)) return ERROR;
+        return "UNKNOWN";
+    }
+
+    private String extractLogMessage(String logEntry) {
+        int messageIndex = logEntry.indexOf(']') + 2;  
+        return logEntry.substring(messageIndex);
+    }
+
+    private void trackLast100Errors(String errorLog) {
+        if (last100Errors.size() >= 100) {
+            last100Errors.removeFirst();  
+        }
+        last100Errors.addLast(errorLog);
+    }
+
+    public void printLogAnalysis() {
+        System.out.println("Log Level Counts:");
+        System.out.println("INFO: " + infoCount);
+        System.out.println("WARN: " + warnCount);
+        System.out.println("ERROR: " + errorCount);
+        System.out.println("Memory Warnings: " + memoryWarningCount);
+        
+        System.out.println("\nLast 100 Errors:");
+        for (String error : last100Errors) {
+            System.out.println(error);
+        }
+    }
+
+    public static void main(String[] args) {
+        LogProcessor processor = new LogProcessor();
+        
+        try {
+            processor.readLogFile("log-data.csv"); 
+            processor.processLogs();
+            processor.printLogAnalysis();
+        } catch (IOException e) {
+            System.out.println("Error reading log file: " + e.getMessage());
+        }
+    }
+}
+
